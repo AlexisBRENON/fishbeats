@@ -9,6 +9,8 @@ import (
 
 type Engine struct {
   player *oto.Player
+  NumOctaves int
+  LegatoValue float64
 }
 
 func NewEngine() *Engine {
@@ -27,6 +29,8 @@ func NewEngine() *Engine {
 
   return &Engine{
     player: context.NewPlayer(),
+    NumOctaves: 4,
+    LegatoValue: 0.05,
   }
 }
 

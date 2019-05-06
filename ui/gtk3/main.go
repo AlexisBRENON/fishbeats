@@ -40,24 +40,41 @@ func Main(e *engine.Engine) {
   win.SetDefaultSize(400, 400)
   win.Connect("destroy", mainQuit)
 
-  mainFrame, err := gtk.FrameNew("Main frame")
+  mainLayout, err := gtk.OverlayNew()
   if err != nil {
-    log.Fatal("Unable to create mainFrame:", err)
+    log.Fatal("Unable to create main layout:", err)
   }
-  mainFrame.SetShadowType(gtk.SHADOW_IN)
-  win.Add(mainFrame)
+  win.Add(mainLayout)
 
-  drawingArea, err := gtk.DrawingAreaNew()
+  scaleArea, err := gtk.DrawingAreaNew()
+  scaleSurface := cairo.CreateImageSurface(cairo.FORMAT_INVALID, 0, 0)
   if err != nil {
-    log.Fatal("Unable to create drawing area:", err)
+    log.Fatal("Unable to create scale area:", err)
   }
-  drawingArea.SetSizeRequest(100, 100)
-  mainFrame.Add(drawingArea)
+  scaleArea.SetSizeRequest(100, 100)
+  mainLayout.AddOverlay(scaleArea)
+  scaleArea.Connect(
+    "configure-event",
+    func(widget *gtk.DrawingArea, event *gdk.Event) bool {
+      return onScaleAreaConfigure(widget, &scaleSurface, e)
+    })
+  scaleArea.Connect("draw", onAreaDraw, &scaleSurface)
+
+  fishArea, err := gtk.DrawingAreaNew()
+  if err != nil {
+    log.Fatal("Unable to create fish area:", err)
+  }
+  fishArea.SetSizeRequest(100, 100)
+  mainLayout.AddOverlay(fishArea)
   /* Signals used to handle the backing surface */
-  drawingArea.Connect("draw", onAreaDraw, appData)
-  drawingArea.Connect("configure-event", onAreaConfigure, appData)
+  fishArea.Connect("configure-event", onAreaConfigure, &appData.surface)
+  fishArea.Connect("draw", onAreaDraw, &appData.surface)
   /* Event signals */
-  win.Connect("key-press-event", onWinKeyPressed, appData)
+  win.Connect(
+    "key-press-event",
+    func(widget *gtk.Window, event *gdk.Event, data *ApplicationData) bool {
+      return onAreaKeyPressed(fishArea, event, data)
+    }, appData)
 
   win.ShowAll()
   gtk.Main()
@@ -67,38 +84,72 @@ func mainQuit() {
   gtk.MainQuit()
 }
 
-func clearSurface(appData *ApplicationData) {
-  cr := cairo.Create(appData.surface);
-  cr.SetSourceRGB(1, 1, 1);
+func clearSurface(surface *cairo.Surface) {
+  cr := cairo.Create(surface);
+  cr.SetOperator(cairo.OPERATOR_CLEAR)
   cr.Paint();
 }
 
 func onAreaDraw(
   widget *gtk.DrawingArea,
   cr *cairo.Context,
-  appData *ApplicationData) bool {
-    cr.SetSourceSurface(appData.surface, 0, 0)
+  surface **cairo.Surface) bool {
+    cr.SetSourceSurface(*surface, 0, 0)
     cr.Paint()
     return true
 }
+
 func onAreaConfigure(
   widget *gtk.DrawingArea,
   event *gdk.Event,
-  appData *ApplicationData) bool {
-    appData.surface = cairo.CreateImageSurface(
-      cairo.FORMAT_RGB24,
+  surface **cairo.Surface) bool {
+    *surface = cairo.CreateImageSurface(
+      cairo.FORMAT_ARGB32,
       widget.GetAllocatedWidth(),
       widget.GetAllocatedHeight())
 
-  /* Initialize the surface to white */
-  clearSurface (appData);
+  /* Initialize the surface */
+  clearSurface(*surface);
 
   /* We've handled the configure event, no need for further processing. */
   return true;
 }
 
-func onWinKeyPressed(
-  widget *gtk.Window,
+func onScaleAreaConfigure(
+  widget *gtk.DrawingArea,
+  surface **cairo.Surface,
+  e *engine.Engine,
+) bool {
+  *surface = cairo.CreateImageSurface(
+    cairo.FORMAT_ARGB32,
+    widget.GetAllocatedWidth(),
+    widget.GetAllocatedHeight())
+  clearSurface(*surface);
+
+  cr := cairo.Create(*surface);
+  cr.SetSourceRGBA(0.3, 0.3, 0.3, 0.6)
+  cr.SetLineWidth(1)
+  cr.Save()
+  cr.Scale(
+    float64(widget.GetAllocatedWidth()),
+    float64(widget.GetAllocatedHeight()))
+  for i := 1; i < e.NumOctaves*8; i++ {
+    yValue := float64(i) / float64(e.NumOctaves * 8)
+    cr.MoveTo(0, yValue);
+    cr.LineTo(1, yValue);
+  }
+  for i := 0.0 ; i < 1 ; i += e.LegatoValue {
+    cr.MoveTo(i, 0)
+    cr.LineTo(i, 1)
+  }
+  cr.Restore()
+  cr.Stroke()
+
+  return true;
+}
+
+func onAreaKeyPressed(
+  widget *gtk.DrawingArea,
   event *gdk.Event,
   data *ApplicationData) bool {
     timestamp := time.Now().UnixNano()
@@ -136,7 +187,8 @@ func onWinKeyPressed(
     data.e.Update(timestamp, data.dots)
 
     cr := cairo.Create(data.surface);
-    cr.SetSourceRGB(1, 1, 1)
+    cr.Save()
+    cr.SetOperator(cairo.OPERATOR_CLEAR)
     for i := 0; i < len(data.previousDots); i++ {
       point := data.previousDots[i]
       x := (point.X * data.surface.GetWidth() / 100.0) - 3.0
@@ -146,7 +198,8 @@ func onWinKeyPressed(
       cr.Rectangle(float64(x), float64(y), float64(w), float64(h))
       cr.Fill()
     }
-    cr.SetSourceRGB(0, 0, 0)
+    cr.Restore()
+    cr.SetSourceRGBA(0, 0, 0, 1)
     for i := 0; i < len(data.dots); i++ {
       point := data.dots[i]
       x := (point.X * data.surface.GetWidth() / 100.0) - 3.0
