@@ -1,8 +1,8 @@
 package gtk3
 
 import (
-  "image"
   "log"
+  "math"
   "time"
 
   "github.com/gotk3/gotk3/cairo"
@@ -10,18 +10,19 @@ import (
   "github.com/gotk3/gotk3/gtk"
 
   "github.com/AlexisBRENON/fishbeats/engine"
+  "github.com/AlexisBRENON/fishbeats/utils"
 )
 
 type ApplicationData struct {
   e *engine.Engine
   surface *cairo.Surface
-  dots []image.Point
-  previousDots []image.Point
+  dots []utils.Point
+  previousDots []utils.Point
 }
 
 func NewApplicationData(e *engine.Engine) *ApplicationData {
-  dots := []image.Point{image.Pt(50, 50)}
-  previousDots := []image.Point{}
+  dots := []utils.Point{utils.Pt(0.5, 0.5)}
+  previousDots := []utils.Point{}
   return &ApplicationData{
     e: e,
     dots: dots,
@@ -158,32 +159,25 @@ func onAreaKeyPressed(
       return false
     }
 
-    switch keyEvent.KeyVal() {
-    case 65361: // Left
-      log.Println("Left")
-      for i := 0; i < len(data.dots); i++ {
-        data.dots[i].X -= 1
+    for i := 0; i < len(data.dots); i++ {
+      switch keyEvent.KeyVal() {
+      case 65361: // Left
+        data.dots[i].X -= 0.01
+        break
+      case 65362: // Top
+        data.dots[i].Y -= 0.01
+        break
+      case 65363: // Right
+        data.dots[i].X += 0.01
+        break
+      case 65364: // Bottom
+        data.dots[i].Y += 0.01
+        break
       }
-      break
-    case 65362: // Top
-      log.Println("Top")
-      for i := 0; i < len(data.dots); i++ {
-        data.dots[i].Y -= 1
-      }
-      break
-    case 65363: // Right
-      log.Println("Right")
-      for i := 0; i < len(data.dots); i++ {
-        data.dots[i].X += 1
-      }
-      break
-    case 65364: // Bottom
-      log.Println("Bottom")
-      for i := 0; i < len(data.dots); i++ {
-        data.dots[i].Y += 1
-      }
-      break
+      data.dots[i].X = math.Min(math.Max(data.dots[i].X, 0.0), 1.0)
+      data.dots[i].Y = math.Min(math.Max(data.dots[i].Y, 0.0), 1.0)
     }
+
     data.e.Update(timestamp, data.dots)
 
     cr := cairo.Create(data.surface);
@@ -191,8 +185,8 @@ func onAreaKeyPressed(
     cr.SetOperator(cairo.OPERATOR_CLEAR)
     for i := 0; i < len(data.previousDots); i++ {
       point := data.previousDots[i]
-      x := (point.X * data.surface.GetWidth() / 100.0) - 3.0
-      y := (point.Y * data.surface.GetHeight() / 100.0) - 3.0
+      x := (point.X * float64(data.surface.GetWidth())) - 3.0
+      y := (point.Y * float64(data.surface.GetHeight())) - 3.0
       w := 6
       h := 6
       cr.Rectangle(float64(x), float64(y), float64(w), float64(h))
@@ -202,8 +196,8 @@ func onAreaKeyPressed(
     cr.SetSourceRGBA(0, 0, 0, 1)
     for i := 0; i < len(data.dots); i++ {
       point := data.dots[i]
-      x := (point.X * data.surface.GetWidth() / 100.0) - 3.0
-      y := (point.Y * data.surface.GetHeight() / 100.0) - 3.0
+      x := (point.X * float64(data.surface.GetWidth())) - 3.0
+      y := (point.Y * float64(data.surface.GetHeight())) - 3.0
       w := 6
       h := 6
       cr.Rectangle(float64(x), float64(y), float64(w), float64(h))
@@ -211,7 +205,7 @@ func onAreaKeyPressed(
     }
     widget.QueueDraw()
     data.previousDots = data.dots
-    data.dots = make([]image.Point, len(data.previousDots))
+    data.dots = make([]utils.Point, len(data.previousDots))
     copy(data.dots, data.previousDots)
     return true
 }

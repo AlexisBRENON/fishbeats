@@ -1,10 +1,11 @@
 package engine
 
 import (
-  "image"
   "log"
 
   "github.com/hajimehoshi/oto"
+
+  "github.com/AlexisBRENON/fishbeats/utils"
 )
 
 type Engine struct {
@@ -34,7 +35,7 @@ func NewEngine() *Engine {
   }
 }
 
-func (e *Engine) Update(timestamp_nano int64, positions []image.Point) error {
+func (e *Engine) Update(timestamp_nano int64, positions []utils.Point) error {
   log.Println("Update at ", timestamp_nano, ":", positions)
   return nil
 }
