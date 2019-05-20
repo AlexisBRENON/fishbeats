@@ -26,6 +26,7 @@ class Client:
                         self.__log.debug(str(note).strip())
                         sock.send(note.SerializeToString() + b'\0')
                         time.sleep(0.2)
+                    break
                 except ConnectionRefusedError as ex:
                     self.__log.warn(ex)
                     time.sleep(self.config.getint("client", "polling_delay"))

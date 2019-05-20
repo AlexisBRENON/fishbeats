@@ -47,9 +47,7 @@ class GuiDemoClient(Tk, Client):
             if num_fishes < len(self.fish_list):
                 self.fish_list = self.fish_list[:num_fishes]
             else:
-                print("Add", num_fishes - len(self.fish_list), "fishes")
                 self.fish_list += [(random.random(), random.random()) for _ in range(num_fishes - len(self.fish_list))]
-            print(self.fish_list)
         spinbox.configure(command=spinbox_cb)
         spinbox.pack(side="left")
 
@@ -63,7 +61,6 @@ class GuiDemoClient(Tk, Client):
                 for f in self.fish_list
             ]
             for i, fish in enumerate(self.fish_list):
-                print(fish)
                 self.aquarium.update_fish(i, fish)
             self.stop_event.wait(0.05)
 
